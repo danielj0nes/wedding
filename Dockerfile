@@ -1,4 +1,15 @@
-# Multi-stage Dockerfile for Rust 1.89
+FROM node:20 AS frontend-builder
+WORKDIR /usr/src/frontend
+
+# Copy frontend sources (this project stores the SvelteKit app under frontend/wedding-frontend)
+COPY frontend/wedding-frontend/package.json frontend/wedding-frontend/package-lock.json* ./
+COPY frontend/wedding-frontend/ ./
+
+# Install deps and build the frontend using Vite (npx vite build). This produces a static
+# site in the `build/` folder when using adapter-static.
+RUN npm install --silent && npx vite build
+
+
 FROM rust:1.89 AS builder
 WORKDIR /usr/src/wedding
 
@@ -6,9 +17,8 @@ WORKDIR /usr/src/wedding
 COPY backend/wedding/Cargo.toml backend/wedding/Cargo.lock* ./
 COPY backend/wedding/ ./
 
-# Copy built frontend assets into the builder so we can include them in the final image
-# (assumes your frontend build artifacts are in frontend/dist)
-COPY frontend/dist /usr/src/wedding/frontend_dist
+# Copy built frontend assets from frontend-builder (adapter-static writes to `build/`)
+COPY --from=frontend-builder /usr/src/frontend/build /usr/src/wedding/frontend_dist
 
 # Build the release binary
 RUN cargo build --release

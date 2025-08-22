@@ -16,6 +16,13 @@ docker run --rm -p 8080:8080 wedding
 ```
 
 Notes:
-- The server requires the `WEDDING_FRONTEND_DIR` env var to point to the static frontend files inside the container.
-- Ensure frontend build output is present in `frontend/dist` before building the image.
-- To set the env var on Windows: `setx WEDDING_FRONTEND_DIR "C:/Full/Path/Goes/Here"`
+- The server requires the `WEDDING_FRONTEND_DIR` env var to point to the static frontend files inside the container or on the host.
+- This project uses SvelteKit with `adapter-static`. The production frontend build is written to `frontend/wedding-frontend/build`.
+- To build the frontend locally:
+
+	```powershell
+	npm install
+	npm vite build
+	```
+
+- To build the Docker image, ensure the frontend `build/` folder is present and used by the Dockerfile during image creation.
