@@ -2,8 +2,9 @@
 Website for our wedding, in Rust and Svelte (learning activity :-))
 
 ## Docker usage
+The easiest way to run the website is with the Docker container, which builds everything then runs it all.
 
-Build the Docker image from the repository root:
+To do so, start at the repository root then:
 
 ```powershell
 docker build -t wedding -f Dockerfile .
@@ -15,14 +16,16 @@ Run the container:
 docker run --rm -p 8080:8080 wedding
 ```
 
-Notes:
-- The server requires the `WEDDING_FRONTEND_DIR` env var to point to the static frontend files inside the container or on the host.
-- This project uses SvelteKit with `adapter-static`. The production frontend build is written to `frontend/wedding-frontend/build`.
+## Notes
+- The server requires the `WEDDING_FRONTEND_DIR` env var to point to the built frontend files inside the container or on the host.
+- The env var should point to the production build, which is written to `frontend/wedding-frontend/build`.
 - To build the frontend locally:
 
 	```powershell
 	npm install
-	npm vite build
+	npx vite build
 	```
 
-- To build the Docker image, ensure the frontend `build/` folder is present and used by the Dockerfile during image creation.
+- To just develop the frontend, run: `npx vite dev`
+- The Rust server can be started with `cargo run`
+- Or it can be built for production with `cargo build --release` then starting the exe file
