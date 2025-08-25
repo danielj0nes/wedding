@@ -1,10 +1,7 @@
-use axum::Router;
-use axum::http::StatusCode;
-use std::net::SocketAddr;
+use axum::{Router, routing::get_service, http::StatusCode};
+use std::{env, net::SocketAddr};
 use tokio::net::TcpListener;
-use std::env;
 use tower_http::services::ServeDir;
-use axum::routing::get_service;
 
 #[tokio::main]
 async fn main() {
@@ -17,7 +14,7 @@ async fn main() {
         }
     };
 
-    // Serve static files from wedding_frontend_dir
+    // Serve the built Svelte frontend files (from the /build dir)
     let static_service = get_service(ServeDir::new(&wedding_frontend_dir)).handle_error(|_| async move {
         (StatusCode::INTERNAL_SERVER_ERROR, "Static file error")
     });
