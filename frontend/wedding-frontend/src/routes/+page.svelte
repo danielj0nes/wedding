@@ -4,6 +4,40 @@
 		showRsvp = !showRsvp;
 	}
 
+	/**
+     * @param {{ preventDefault: () => void; currentTarget: any; }} event
+     */
+	async function handleSubmit(event) {
+		event.preventDefault();
+		const form = event.currentTarget;
+		if (!(form instanceof HTMLFormElement)) return;
+		const formData = new FormData(form);
+		const data = {
+			name: formData.get('name'),
+			email: formData.get('email'),
+			attending: formData.get('attending'),
+			comments: formData.get('comments') || null,
+		};
+		try {
+			const response = await fetch('/register', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify(data),
+			});
+			if (response.ok) {
+				alert('Thanks — RSVP received!');
+				toggleRsvp(); // Close the modal
+			} else {
+				alert('Error submitting RSVP');
+			}
+		} catch (error) {
+			console.error('Error:', error);
+			alert('Error submitting RSVP');
+		}
+	}
+
 	// Countdown timer
 	let countdown = { days: 0, hours: 0, minutes: 0, seconds: 0 };
 	
@@ -74,28 +108,41 @@
 					<h2>RSVP</h2>
 					<button class="close-button" on:click={toggleRsvp} aria-label="Close RSVP form">×</button>
 				</div>
-				<form on:submit|preventDefault={() => alert('Thanks — RSVP received!') }>
+				<form on:submit={handleSubmit}>
 					<div class="form-group">
 						<label for="name">
-							<span class="label-text">Your name</span>
-							<input id="name" required placeholder="Full name" />
+							<span class="label-text">Name(s)</span>
+							<input id="name" name="name" required placeholder="Enter name(s)" />
 						</label>
 					</div>
 					<div class="form-group">
 						<label for="email">
 							<span class="label-text">Your email</span>
-							<input id="email" type="email" required placeholder="Email address" />
+							<input id="email" name="email" type="email" required placeholder="Email address" />
 						</label>
 					</div>
 					<div class="form-group">
-						<label for="attending">
-							<span class="label-text">Attending?</span>
-							<select id="attending">
-								<option value="yes">Yes, I'll be there!</option>
-								<option value="no">Sorry, I can't make it</option>
-							</select>
+						<span class="label-text">Attending?</span>
+						<div class="radio-group">
+							<label class="radio-label">
+								<input type="radio" name="attending" value="yes" required />
+								<span class="custom-radio"></span>
+								Yes
+							</label>
+							<label class="radio-label">
+								<input type="radio" name="attending" value="no" required />
+								<span class="custom-radio"></span>
+								No
+							</label>
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="comments">
+							<span class="label-text">Comments (e.g., food allergies, special requests)</span>
+							<textarea id="comments" name="comments" placeholder="Enter any comments here..." rows="6"></textarea>
 						</label>
 					</div>
+
 					<div class="actions">
 						<button type="button" class="cancel-btn" on:click={toggleRsvp}>Cancel</button>
 						<button type="submit" class="submit-btn">Send RSVP</button>
@@ -116,7 +163,7 @@
 	:global(html, body) { 
 		margin: 0; 
 		padding: 0; 
-		overflow: hidden; /* Disable all scrolling */
+		overflow: hidden;
 		scroll-behavior: smooth;
 	}
 
@@ -133,13 +180,12 @@
 		font-family: 'Playfair Display', serif; 
 	}
 
-	/* Custom text selection colour */
 	:global(::selection) {
 		background-color: #fce4ec;
 		color: #333;
 	}
 	:global(::-moz-selection) {
-		background-color: #fce4ec; /* Firefox support */
+		background-color: #fce4ec;
 		color: #333;
 	}
 
@@ -294,7 +340,6 @@
 		opacity: 1;
 	}
 
-	/* Top date - larger, elegant, no background/border */
 	.top-date {
 		position: absolute;
 		top: 18px;
@@ -312,7 +357,6 @@
 		text-shadow: 0 4px 18px rgba(0,0,0,0.6);
 	}
 
-	/* Countdown Timer */
 	.countdown-container {
 		position: absolute;
 		top: 70px;
@@ -352,7 +396,6 @@
 		text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 	}
 
-	/* Responsive countdown */
 	@media (max-width: 768px) {
 		.countdown-container {
 			top: 60px;
@@ -394,38 +437,37 @@
 	.title { font-size: 2.25rem; margin: 0; }
 	.subtitle { margin: .25rem 0 1rem; color: #ddd; }
 	.venue { margin: 0.25rem 0; color: #eee; }
-	/* RSVP Button */
 	.rsvp {
-		background: #fce4ec;
-		color: #8b1538;
-		border: 2px solid #fce4ec;
+		background: rgba(255, 255, 255, 0.2);
+		color: #ffffff;
+		border: 2px solid rgba(255, 255, 255, 0.4);
 		padding: 0.875rem 2rem;
 		border-radius: 25px;
 		font-size: 1rem;
 		font-weight: 500;
 		cursor: pointer;
-		transition: all 0.2s ease;
-		box-shadow: 0 2px 8px rgba(252, 228, 236, 0.2);
+		transition: all 0.3s ease;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 		letter-spacing: 0.25px;
 		text-transform: uppercase;
 		font-family: 'Inter', sans-serif;
 		min-width: 140px;
+		backdrop-filter: blur(5px);
 	}
 
 	.rsvp:hover {
-		background: #f8bbd9;
-		border-color: #f8bbd9;
-		color: #6b0f2d;
-		transform: translateY(-1px);
-		box-shadow: 0 4px 12px rgba(252, 228, 236, 0.3);
+		background: rgba(255, 255, 255, 0.4);
+		border-color: rgba(255, 255, 255, 0.6);
+		color: #000000;
+		transform: translateY(-2px);
+		box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
 	}
 
 	.rsvp:active {
 		transform: translateY(0);
-		box-shadow: 0 2px 6px rgba(252, 228, 236, 0.2);
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 	}
 
-	/* RSVP Modal Styles */
 	.rsvp-overlay {
 		position: fixed;
 		inset: 0;
@@ -586,7 +628,6 @@
 		transform: translateY(0);
 	}
 
-	/* Animations */
 	@keyframes fadeIn {
 		from {
 			opacity: 0;
@@ -629,7 +670,6 @@
 		}
 	}
 
-	/* Responsive adjustments */
 	@media (max-width: 640px) {
 		.rsvp-modal {
 			width: 95%;
@@ -654,7 +694,6 @@
 		}
 	}
 
-	/* Responsive venue link */
 	@media (max-width: 768px) {
 		.banner-text .venue {
 			margin-top: 0.75rem;
@@ -664,5 +703,63 @@
 			font-size: clamp(1rem, 2vw, 1.2rem);
 			padding: 0.4rem 0.6rem;
 		}
+	}
+
+	.radio-group {
+		display: flex;
+		gap: 1.5rem;
+		align-items: center;
+	}
+
+	.radio-label {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 1rem;
+		font-weight: 500;
+		color: #333;
+		cursor: pointer;
+	}
+
+	.radio-label input {
+		display: none;
+	}
+
+	.custom-radio {
+		width: 20px;
+		height: 20px;
+		border: 2px solid #ccc;
+		border-radius: 50%;
+		display: inline-block;
+		position: relative;
+		transition: border-color 0.3s ease;
+	}
+
+	.radio-label input:checked + .custom-radio {
+		border-color: #4caf50;
+		background-color: #4caf50;
+	}
+
+	.radio-label input:checked + .custom-radio::after {
+		content: "";
+		width: 10px;
+		height: 10px;
+		background: white;
+		border-radius: 50%;
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+	}
+
+	textarea {
+		width: 100%;
+		max-width: 390px;
+		resize: none;
+		font-size: 1rem;
+		padding: 0.75rem;
+		border: 1px solid #ccc;
+		border-radius: 8px;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 	}
 </style>
