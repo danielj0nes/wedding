@@ -1,10 +1,10 @@
 use axum::{Router, routing::{get_service, post}, http::StatusCode, Json};
-use lettre::{Message, SmtpTransport, Transport};
-use lettre::transport::smtp::authentication::Credentials;
-use serde::Deserialize;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use std::{env, net::SocketAddr};
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
+use axum::extract::ConnectInfo;
 
 #[derive(Deserialize)]
 struct RsvpForm {
@@ -14,37 +14,81 @@ struct RsvpForm {
     comments: Option<String>,
 }
 
-async fn register(Json(payload): Json<RsvpForm>) -> StatusCode {
+#[derive(Serialize)]
+struct SendGridEmail {
+    personalizations: Vec<Personalization>,
+    from: EmailAddress,
+    content: Vec<Content>,
+}
+
+#[derive(Serialize)]
+struct Personalization {
+    to: Vec<EmailAddress>,
+    subject: String,
+}
+
+#[derive(Serialize)]
+struct EmailAddress {
+    email: String,
+}
+
+#[derive(Serialize)]
+struct Content {
+    #[serde(rename = "type")]
+    content_type: String,
+    value: String,
+}
+
+async fn register(ConnectInfo(addr): ConnectInfo<SocketAddr>, Json(payload): Json<RsvpForm>) -> StatusCode {
     println!(
-        "RSVP Received: Name: {}, Email: {}, Attending: {}, Comments: {:?}",
-        payload.name, payload.email, payload.attending, payload.comments
+        "RSVP Received: Name: {}, Email: {}, Attending: {}, Comments: {:?} IP {}",
+        payload.name, payload.email, payload.attending, payload.comments, addr.ip()
     );
 
-    // Send email
-    let smtp_host = env::var("SMTP_HOST").unwrap_or("smtp.gmail.com".to_string());
-    let smtp_username = env::var("SMTP_USERNAME").unwrap_or("".to_string());
-    let smtp_password = env::var("SMTP_PASSWORD").unwrap_or("".to_string());
+    // Send email via SendGrid
+    let api_key = env::var("SENDGRID_API_KEY").unwrap_or("".to_string());
+    let from_email = env::var("FROM_EMAIL").unwrap_or("".to_string());
 
-    let email = Message::builder()
-        .from(smtp_username.parse().unwrap())
-        .to("daniel@jones.ac".parse().unwrap())
-        .subject("New RSVP Received")
-        .body(format!(
-            "Name: {}\nEmail: {}\nAttending: {}\nComments: {}",
-            payload.name, payload.email, payload.attending, payload.comments.as_deref().unwrap_or("")
-        ))
-        .unwrap();
+    let email_body = format!(
+        "Name: {}\nEmail: {}\nAttending: {}\nComments: {}\nIP Address: {}",
+        payload.name, payload.email, payload.attending, payload.comments.as_ref().unwrap_or(&"".to_string()), addr.ip()
+    );
 
-    let creds = Credentials::new(smtp_username, smtp_password);
+    let sendgrid_payload = SendGridEmail {
+        personalizations: vec![Personalization {
+            to: vec![EmailAddress {
+                email: "".to_string(),
+            }],
+            subject: "New RSVP Received".to_string(),
+        }],
+        from: EmailAddress {
+            email: from_email,
+        },
+        content: vec![Content {
+            content_type: "text/plain".to_string(),
+            value: email_body,
+        }],
+    };
 
-    let mailer = SmtpTransport::relay(&smtp_host)
-        .unwrap()
-        .credentials(creds)
-        .build();
+    let client = Client::new();
+    let response = client
+        .post("https://api.sendgrid.com/v3/mail/send")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&sendgrid_payload)
+        .send()
+        .await;
 
-    match mailer.send(&email) {
-        Ok(_) => println!("Email sent successfully"),
-        Err(e) => println!("Could not send email: {:?}", e),
+    match response {
+        Ok(resp) if resp.status().is_success() => {
+            println!("Email sent successfully via SendGrid");
+        }
+        Ok(resp) => {
+            println!("Failed to send email: {}", resp.status());
+        }
+        Err(e) => {
+            println!("Error sending email: {:?}", e);
+        }
     }
 
     StatusCode::OK
@@ -75,5 +119,5 @@ async fn main() {
     let listener = TcpListener::bind(addr).await.unwrap();
     println!("Listening on {}", addr);
 
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
 }
