@@ -1,4 +1,4 @@
-use axum::{Router, routing::{get_service, post}, http::StatusCode, Json};
+use axum::{Router, routing::{get_service, post}, http::{StatusCode, HeaderMap}, Json};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::{env, net::SocketAddr};
@@ -39,10 +39,37 @@ struct Content {
     value: String,
 }
 
-async fn register(ConnectInfo(addr): ConnectInfo<SocketAddr>, Json(payload): Json<RsvpForm>) -> StatusCode {
+fn extract_real_ip(headers: &HeaderMap, fallback_addr: SocketAddr) -> String {
+    if let Some(real_ip) = headers.get("x-real-ip") {
+        if let Ok(ip_str) = real_ip.to_str() {
+            return ip_str.to_string();
+        }
+    }
+    
+    // Try X-Forwarded-For (can contain multiple IPs, we want the first one)
+    if let Some(forwarded_for) = headers.get("x-forwarded-for") {
+        if let Ok(forwarded_str) = forwarded_for.to_str() {
+            // X-Forwarded-For can be "client, proxy1, proxy2", we want the first IP
+            if let Some(first_ip) = forwarded_str.split(',').next() {
+                return first_ip.trim().to_string();
+            }
+        }
+    }
+    
+    // Fallback to the direct connection IP
+    fallback_addr.ip().to_string()
+}
+
+async fn register(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>, 
+    headers: HeaderMap,
+    Json(payload): Json<RsvpForm>
+) -> StatusCode {
+    let real_ip = extract_real_ip(&headers, addr);
+    
     println!(
         "RSVP Received: Name: {}, Email: {}, Attending: {}, Comments: {:?} IP {}",
-        payload.name, payload.email, payload.attending, payload.comments, addr.ip()
+        payload.name, payload.email, payload.attending, payload.comments, real_ip
     );
 
     // Send email via SendGrid
@@ -51,7 +78,7 @@ async fn register(ConnectInfo(addr): ConnectInfo<SocketAddr>, Json(payload): Jso
 
     let email_body = format!(
         "Name: {}\nEmail: {}\nAttending: {}\nComments: {}\nIP Address: {}",
-        payload.name, payload.email, payload.attending, payload.comments.as_ref().unwrap_or(&"".to_string()), addr.ip()
+        payload.name, payload.email, payload.attending, payload.comments.as_ref().unwrap_or(&"".to_string()), real_ip
     );
 
     let sendgrid_payload = SendGridEmail {
